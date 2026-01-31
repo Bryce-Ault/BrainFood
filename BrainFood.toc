@@ -1,0 +1,7 @@
+## Interface: 11506
+## Title: BrainFood
+## Notes: One-click Arcane Intellect/Brilliance buffing for battlegrounds. Feed their brains!
+## Author: You
+## Version: 1.0.0
+
+BrainFood.lua
