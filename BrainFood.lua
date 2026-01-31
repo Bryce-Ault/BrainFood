@@ -71,22 +71,32 @@ local function ScanForUnbuffed()
     end
 end
 
-local function AdvanceQueue()
-    currentIndex = currentIndex + 1
-    -- Skip units that became invalid or got buffed since last scan
-    while currentIndex <= #queue do
-        local unit = queue[currentIndex]
+local currentUnit = nil -- the unit we're currently targeting to buff
+
+local function GetNextTarget()
+    -- If we have a current target that still needs a buff and is in range, stick with them
+    if currentUnit and IsValidBuffTarget(currentUnit) and not UnitHasBuff(currentUnit) then
+        return currentUnit
+    end
+
+    -- Current target is done or invalid — find the next one from the queue
+    currentUnit = nil
+    for _, unit in ipairs(queue) do
         if IsValidBuffTarget(unit) and not UnitHasBuff(unit) then
+            currentUnit = unit
             return unit
         end
-        currentIndex = currentIndex + 1
     end
-    -- Ran out — do a fresh scan in case new people arrived
+
+    -- Queue exhausted — do a fresh scan
     ScanForUnbuffed()
-    currentIndex = 1
-    if #queue > 0 then
-        return queue[1]
+    for _, unit in ipairs(queue) do
+        if IsValidBuffTarget(unit) and not UnitHasBuff(unit) then
+            currentUnit = unit
+            return unit
+        end
     end
+
     return nil
 end
 
@@ -144,14 +154,13 @@ status:SetText("")
 local function UpdateButton()
     if InCombatLockdown() then return end
 
-    local unit = AdvanceQueue()
+    local unit = GetNextTarget()
     local spell = GetBuffSpellName()
 
     if unit then
         local name = UnitName(unit) or unit
         local remaining = 0
-        for i = currentIndex, #queue do
-            local u = queue[i]
+        for _, u in ipairs(queue) do
             if IsValidBuffTarget(u) and not UnitHasBuff(u) then
                 remaining = remaining + 1
             end
