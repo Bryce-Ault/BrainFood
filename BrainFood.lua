@@ -14,6 +14,10 @@ local CLASS_CONFIG = {
         cast = "Power Word: Fortitude",
         buffs = { "Power Word: Fortitude", "Prayer of Fortitude" },
     },
+    PALADIN = {
+        cast = "Blessing of Wisdom",
+        buffs = { "Blessing of Wisdom", "Greater Blessing of Wisdom" },
+    },
 }
 
 local queue = {}       -- list of unitIDs needing buffs
