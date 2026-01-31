@@ -41,6 +41,8 @@ local function IsValidBuffTarget(unit)
     if UnitIsDeadOrGhost(unit) then return false end
     if not UnitIsConnected(unit) then return false end
     if not UnitIsVisible(unit) then return false end
+    if UnitIsUnit(unit, "player") then return true end
+    if not CheckInteractDistance(unit, 4) then return false end -- ~30 yard range check
     return true
 end
 
