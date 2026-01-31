@@ -1,13 +1,19 @@
 local addonName, ns = ...
 
--- Spell names — resolved after PLAYER_LOGIN when spellbook is available
-local ARCANE_INTELLECT = "Arcane Intellect"
-local ARCANE_BRILLIANCE = "Arcane Brilliance"
+-- Class-specific configuration (set on PLAYER_ENTERING_WORLD)
+local castSpell = nil   -- the spell to cast on click
+local buffNames = {}    -- buff auras to check for (if any present, skip that unit)
+local playerClass = nil
 
--- Buff names to check
-local INTELLECT_BUFFS = {
-    "Arcane Intellect",
-    "Arcane Brilliance",
+local CLASS_CONFIG = {
+    MAGE = {
+        cast = "Arcane Intellect",
+        buffs = { "Arcane Intellect", "Arcane Brilliance" },
+    },
+    PRIEST = {
+        cast = "Power Word: Fortitude",
+        buffs = { "Power Word: Fortitude", "Prayer of Fortitude" },
+    },
 }
 
 local queue = {}       -- list of unitIDs needing buffs
@@ -17,11 +23,11 @@ local currentIndex = 0 -- index into queue for current target
 -- Helpers
 -- ============================================================
 
-local function UnitHasIntellectBuff(unit)
+local function UnitHasBuff(unit)
     for i = 1, 40 do
         local name = UnitBuff(unit, i)
         if not name then break end
-        for _, buffName in ipairs(INTELLECT_BUFFS) do
+        for _, buffName in ipairs(buffNames) do
             if name == buffName then
                 return true
             end
@@ -56,9 +62,9 @@ local function ScanForUnbuffed()
         local name = UnitName(unit) or "nil"
         local exists = UnitExists(unit)
         local visible = exists and UnitIsVisible(unit)
-        local hasBuff = exists and UnitHasIntellectBuff(unit)
+        local hasBuff = exists and UnitHasBuff(unit)
         print("|cff8888ffBrainFood DEBUG:|r " .. unit .. " (" .. name .. ") exists=" .. tostring(exists) .. " visible=" .. tostring(visible) .. " hasBuff=" .. tostring(hasBuff))
-        if IsValidBuffTarget(unit) and not UnitHasIntellectBuff(unit) then
+        if IsValidBuffTarget(unit) and not UnitHasBuff(unit) then
             table.insert(queue, unit)
         end
     end
@@ -70,7 +76,7 @@ local function AdvanceQueue()
     -- Skip units that became invalid or got buffed since last scan
     while currentIndex <= #queue do
         local unit = queue[currentIndex]
-        if IsValidBuffTarget(unit) and not UnitHasIntellectBuff(unit) then
+        if IsValidBuffTarget(unit) and not UnitHasBuff(unit) then
             return unit
         end
         currentIndex = currentIndex + 1
@@ -89,8 +95,7 @@ end
 -- ============================================================
 
 local function GetBuffSpellName()
-    -- In Classic, /cast Arcane Intellect without a rank casts the highest known rank
-    return "Arcane Intellect"
+    return castSpell or "Arcane Intellect"
 end
 
 -- ============================================================
@@ -148,7 +153,7 @@ local function UpdateButton()
         local remaining = 0
         for i = currentIndex, #queue do
             local u = queue[i]
-            if IsValidBuffTarget(u) and not UnitHasIntellectBuff(u) then
+            if IsValidBuffTarget(u) and not UnitHasBuff(u) then
                 remaining = remaining + 1
             end
         end
@@ -157,7 +162,7 @@ local function UpdateButton()
         status:SetText(remaining .. " hungry brain(s) left")
         bg:SetColorTexture(0.1, 0.0, 0.3, 0.85)
 
-        local macrotext = "/target " .. name .. "\n/cast Arcane Intellect\n/targetlasttarget"
+        local macrotext = "/target " .. name .. "\n/cast " .. spell .. "\n/targetlasttarget"
         print("|cff8888ffBrainFood DEBUG:|r macrotext=" .. macrotext:gsub("\n", "\\n"))
 
         btn:SetAttribute("type", "macro")
@@ -242,13 +247,17 @@ frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 local throttle = 0
 frame:SetScript("OnEvent", function(self, event, arg1, ...)
     if event == "PLAYER_ENTERING_WORLD" then
-        -- Show only for mages
+        -- Configure for supported classes
         local _, class = UnitClass("player")
-        if class ~= "MAGE" then
+        local config = CLASS_CONFIG[class]
+        if not config then
             btn:Hide()
             self:UnregisterAllEvents()
             return
         end
+        playerClass = class
+        castSpell = config.cast
+        buffNames = config.buffs
         -- Short delay to let instance info populate
         C_Timer.After(2, function()
             -- TEST MODE: skip BG checks so it works anywhere in a group
@@ -307,7 +316,7 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
         if bgActive then return end
         if arg1 == "player" then
             local spellName = ...
-            if spellName == ARCANE_INTELLECT or spellName == ARCANE_BRILLIANCE then
+            if spellName == castSpell then
                 C_Timer.After(0.3, function()
                     if not InCombatLockdown() then
                         UpdateButton()
