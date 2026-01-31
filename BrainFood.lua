@@ -1,13 +1,13 @@
 local addonName, ns = ...
 
--- Spell names (localization-safe: pulled from spellbook)
-local ARCANE_INTELLECT = GetSpellInfo(10157) or "Arcane Intellect"
-local ARCANE_BRILLIANCE = GetSpellInfo(23028) or "Arcane Brilliance"
+-- Spell names — resolved after PLAYER_LOGIN when spellbook is available
+local ARCANE_INTELLECT = "Arcane Intellect"
+local ARCANE_BRILLIANCE = "Arcane Brilliance"
 
--- Buff names to check (same as spell names for these)
+-- Buff names to check
 local INTELLECT_BUFFS = {
-    ARCANE_INTELLECT,
-    ARCANE_BRILLIANCE,
+    "Arcane Intellect",
+    "Arcane Brilliance",
 }
 
 local queue = {}       -- list of unitIDs needing buffs
@@ -44,17 +44,25 @@ local function ScanForUnbuffed()
     currentIndex = 0
 
     local numMembers = GetNumGroupMembers()
+    print("|cff8888ffBrainFood DEBUG:|r Group members: " .. numMembers)
     if numMembers == 0 then return end
 
     local prefix = IsInRaid() and "raid" or "party"
     local count = IsInRaid() and numMembers or (numMembers - 1)
+    print("|cff8888ffBrainFood DEBUG:|r Prefix: " .. prefix .. ", scanning " .. count .. " units")
 
     for i = 1, count do
         local unit = prefix .. i
+        local name = UnitName(unit) or "nil"
+        local exists = UnitExists(unit)
+        local visible = exists and UnitIsVisible(unit)
+        local hasBuff = exists and UnitHasIntellectBuff(unit)
+        print("|cff8888ffBrainFood DEBUG:|r " .. unit .. " (" .. name .. ") exists=" .. tostring(exists) .. " visible=" .. tostring(visible) .. " hasBuff=" .. tostring(hasBuff))
         if IsValidBuffTarget(unit) and not UnitHasIntellectBuff(unit) then
             table.insert(queue, unit)
         end
     end
+    print("|cff8888ffBrainFood DEBUG:|r Found " .. #queue .. " unbuffed targets")
 end
 
 local function AdvanceQueue()
@@ -81,20 +89,8 @@ end
 -- ============================================================
 
 local function GetBuffSpellName()
-    -- Prefer Arcane Brilliance (group) if known
-    if IsSpellKnown(23028) then
-        return ARCANE_BRILLIANCE
-    end
-    if IsSpellKnown(10157) then
-        return ARCANE_INTELLECT
-    end
-    -- Fall back to lower ranks
-    for _, id in ipairs({10156, 1008, 8450, 1459}) do
-        if IsSpellKnown(id) then
-            return GetSpellInfo(id)
-        end
-    end
-    return ARCANE_INTELLECT
+    -- In Classic, /cast Arcane Intellect without a rank casts the highest known rank
+    return "Arcane Intellect"
 end
 
 -- ============================================================
@@ -104,10 +100,11 @@ end
 local btn = CreateFrame("Button", "BrainFoodButton", UIParent, "SecureActionButtonTemplate")
 btn:SetSize(220, 40)
 btn:SetPoint("TOP", UIParent, "TOP", 0, -120)
+btn:SetFrameStrata("HIGH")
 btn:SetMovable(true)
 btn:EnableMouse(true)
 btn:RegisterForDrag("LeftButton")
-btn:RegisterForClicks("AnyUp")
+btn:RegisterForClicks("AnyUp", "AnyDown")
 
 -- Drag handling (only out of combat)
 btn:SetScript("OnDragStart", function(self)
@@ -144,6 +141,7 @@ local function UpdateButton()
 
     local unit = AdvanceQueue()
     local spell = GetBuffSpellName()
+    print("|cff8888ffBrainFood DEBUG:|r UpdateButton — unit=" .. tostring(unit) .. " spell=" .. tostring(spell) .. " btnShown=" .. tostring(btn:IsShown()))
 
     if unit then
         local name = UnitName(unit) or unit
@@ -159,8 +157,11 @@ local function UpdateButton()
         status:SetText(remaining .. " hungry brain(s) left")
         bg:SetColorTexture(0.1, 0.0, 0.3, 0.85)
 
+        local macrotext = "/target " .. name .. "\n/cast Arcane Intellect\n/targetlasttarget"
+        print("|cff8888ffBrainFood DEBUG:|r macrotext=" .. macrotext:gsub("\n", "\\n"))
+
         btn:SetAttribute("type", "macro")
-        btn:SetAttribute("macrotext", "/target " .. name .. "\n/cast " .. spell .. "\n/targetlasttarget")
+        btn:SetAttribute("macrotext", macrotext)
     else
         label:SetText("BrainFood: All Fed!")
         status:SetText("Everyone has big brain energy")
@@ -174,6 +175,62 @@ end
 -- ============================================================
 -- Events
 -- ============================================================
+
+local bgActive = false -- true once the battleground has started (gates opened)
+local scanTicker = nil  -- periodic rescan timer during prep
+
+local function IsInBattleground()
+    local _, instanceType = IsInInstance()
+    return instanceType == "pvp"
+end
+
+local function PlayerHasPrepBuff()
+    for i = 1, 40 do
+        local name = UnitBuff("player", i)
+        if not name then break end
+        if name == "Preparation" then
+            return true
+        end
+    end
+    return false
+end
+
+local function StopScanTicker()
+    if scanTicker then
+        scanTicker:Cancel()
+        scanTicker = nil
+    end
+end
+
+local function StartScanTicker()
+    StopScanTicker()
+    -- Rescan every 3 seconds during prep (players load in over time)
+    scanTicker = C_Timer.NewTicker(3, function()
+        if bgActive or not IsInBattleground() then
+            StopScanTicker()
+            return
+        end
+        ScanForUnbuffed()
+        if not InCombatLockdown() then
+            UpdateButton()
+        end
+    end)
+end
+
+local function HideForBattle()
+    bgActive = true
+    StopScanTicker()
+    if not InCombatLockdown() then
+        btn:Hide()
+    else
+        C_Timer.After(0.5, function()
+            if bgActive and not InCombatLockdown() then
+                btn:Hide()
+            end
+        end)
+    end
+    print("|cff8888ffBrainFood:|r Battleground started. Hiding until next prep phase.")
+end
 
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -192,34 +249,65 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
             self:UnregisterAllEvents()
             return
         end
-        ScanForUnbuffed()
-        UpdateButton()
+        -- Short delay to let instance info populate
+        C_Timer.After(2, function()
+            -- TEST MODE: skip BG checks so it works anywhere in a group
+            --if IsInBattleground() then
+            --    if PlayerHasPrepBuff() then
+            --        bgActive = false
+            --        btn:Show()
+            --        ScanForUnbuffed()
+            --        UpdateButton()
+            --        StartScanTicker()
+            --        print("|cff8888ffBrainFood:|r BG prep detected. Scanning for hungry brains...")
+            --    else
+            --        -- Joined mid-match, stay hidden
+            --        bgActive = true
+            --        btn:Hide()
+            --    end
+            --else
+                -- Not in a BG — reset state, show button for dungeon/raid use
+                bgActive = false
+                StopScanTicker()
+                ScanForUnbuffed()
+                UpdateButton()
+            --end
+        end)
 
     elseif event == "GROUP_ROSTER_UPDATE" then
+        if bgActive then return end
         if not InCombatLockdown() then
             ScanForUnbuffed()
             UpdateButton()
         end
 
     elseif event == "UNIT_AURA" then
-        -- Throttle aura updates
+        if bgActive then return end
         local now = GetTime()
         if now - throttle < 0.5 then return end
         throttle = now
+        -- TEST MODE: gate-open detection disabled
+        --if arg1 == "player" and IsInBattleground() and not PlayerHasPrepBuff() and not bgActive then
+        --    HideForBattle()
+        --    return
+        --end
         if not InCombatLockdown() then
             UpdateButton()
         end
 
     elseif event == "PLAYER_REGEN_ENABLED" then
-        -- Left combat — safe to update secure button
+        if bgActive then
+            btn:Hide()
+            return
+        end
         ScanForUnbuffed()
         UpdateButton()
 
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+        if bgActive then return end
         if arg1 == "player" then
             local spellName = ...
             if spellName == ARCANE_INTELLECT or spellName == ARCANE_BRILLIANCE then
-                -- Brief delay so the buff registers on the target
                 C_Timer.After(0.3, function()
                     if not InCombatLockdown() then
                         UpdateButton()

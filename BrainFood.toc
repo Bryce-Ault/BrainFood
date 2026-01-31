@@ -1,4 +1,4 @@
-## Interface: 11506
+## Interface: 11508, 20505, 30403, 40400, 110207, 120001
 ## Title: BrainFood
 ## Notes: One-click Arcane Intellect/Brilliance buffing for battlegrounds. Feed their brains!
 ## Author: You
