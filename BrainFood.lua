@@ -15,6 +15,10 @@ local CLASS_CONFIG = {
         cast = "Power Word: Fortitude",
         buffs = { "Power Word: Fortitude", "Prayer of Fortitude" },
     },
+    DRUID = {
+        cast = "Mark of the Wild",
+        buffs = { "Mark of the Wild", "Gift of the Wild" },
+    },
     PALADIN = {
         cast = "Blessing of Wisdom",
         buffs = { "Blessing of Wisdom", "Greater Blessing of Wisdom" },
