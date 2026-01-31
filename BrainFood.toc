@@ -5,3 +5,8 @@
 ## Version: 1.0.0
 
 BrainFood.lua
+BuffConfig.lua
+BuffScanner.lua
+BuffButton.lua
+BattlegroundEvents.lua
+SlashCommands.lua
