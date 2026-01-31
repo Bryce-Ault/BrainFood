@@ -11,5 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: BigWigsMods/packager@v2
+        with:
+          args: -p 1449754
         env:
           CF_API_KEY: ${{ secrets.CURSEFORGE }}
