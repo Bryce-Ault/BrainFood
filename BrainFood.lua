@@ -41,7 +41,6 @@ local function IsValidBuffTarget(unit)
     if UnitIsDeadOrGhost(unit) then return false end
     if not UnitIsConnected(unit) then return false end
     if not UnitIsVisible(unit) then return false end
-    if UnitIsUnit(unit, "player") then return false end
     return true
 end
 
@@ -50,25 +49,24 @@ local function ScanForUnbuffed()
     currentIndex = 0
 
     local numMembers = GetNumGroupMembers()
-    print("|cff8888ffBrainFood DEBUG:|r Group members: " .. numMembers)
     if numMembers == 0 then return end
 
     local prefix = IsInRaid() and "raid" or "party"
     local count = IsInRaid() and numMembers or (numMembers - 1)
-    print("|cff8888ffBrainFood DEBUG:|r Prefix: " .. prefix .. ", scanning " .. count .. " units")
 
     for i = 1, count do
         local unit = prefix .. i
-        local name = UnitName(unit) or "nil"
-        local exists = UnitExists(unit)
-        local visible = exists and UnitIsVisible(unit)
-        local hasBuff = exists and UnitHasBuff(unit)
-        print("|cff8888ffBrainFood DEBUG:|r " .. unit .. " (" .. name .. ") exists=" .. tostring(exists) .. " visible=" .. tostring(visible) .. " hasBuff=" .. tostring(hasBuff))
         if IsValidBuffTarget(unit) and not UnitHasBuff(unit) then
             table.insert(queue, unit)
         end
     end
-    print("|cff8888ffBrainFood DEBUG:|r Found " .. #queue .. " unbuffed targets")
+
+    -- In a party, "player" isn't one of the partyN units, so check separately
+    if not IsInRaid() then
+        if IsValidBuffTarget("player") and not UnitHasBuff("player") then
+            table.insert(queue, "player")
+        end
+    end
 end
 
 local function AdvanceQueue()
@@ -146,7 +144,6 @@ local function UpdateButton()
 
     local unit = AdvanceQueue()
     local spell = GetBuffSpellName()
-    print("|cff8888ffBrainFood DEBUG:|r UpdateButton — unit=" .. tostring(unit) .. " spell=" .. tostring(spell) .. " btnShown=" .. tostring(btn:IsShown()))
 
     if unit then
         local name = UnitName(unit) or unit
@@ -163,7 +160,6 @@ local function UpdateButton()
         bg:SetColorTexture(0.1, 0.0, 0.3, 0.85)
 
         local macrotext = "/target " .. name .. "\n/cast " .. spell .. "\n/targetlasttarget"
-        print("|cff8888ffBrainFood DEBUG:|r macrotext=" .. macrotext:gsub("\n", "\\n"))
 
         btn:SetAttribute("type", "macro")
         btn:SetAttribute("macrotext", macrotext)
@@ -181,23 +177,13 @@ end
 -- Events
 -- ============================================================
 
-local bgActive = false -- true once the battleground has started (gates opened)
-local scanTicker = nil  -- periodic rescan timer during prep
+local bgActive = false   -- true once the BG match has begun (gates opened)
+local inBattleground = false
+local scanTicker = nil
 
 local function IsInBattleground()
     local _, instanceType = IsInInstance()
     return instanceType == "pvp"
-end
-
-local function PlayerHasPrepBuff()
-    for i = 1, 40 do
-        local name = UnitBuff("player", i)
-        if not name then break end
-        if name == "Preparation" then
-            return true
-        end
-    end
-    return false
 end
 
 local function StopScanTicker()
@@ -211,7 +197,7 @@ local function StartScanTicker()
     StopScanTicker()
     -- Rescan every 3 seconds during prep (players load in over time)
     scanTicker = C_Timer.NewTicker(3, function()
-        if bgActive or not IsInBattleground() then
+        if bgActive or not inBattleground then
             StopScanTicker()
             return
         end
@@ -243,6 +229,10 @@ frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 frame:RegisterEvent("UNIT_AURA")
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+frame:RegisterEvent("CHAT_MSG_BG_SYSTEM_NEUTRAL")
+
+-- Start hidden until we enter a BG
+btn:Hide()
 
 local throttle = 0
 frame:SetScript("OnEvent", function(self, event, arg1, ...)
@@ -258,62 +248,55 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
         playerClass = class
         castSpell = config.cast
         buffNames = config.buffs
+
         -- Short delay to let instance info populate
         C_Timer.After(2, function()
-            -- TEST MODE: skip BG checks so it works anywhere in a group
-            --if IsInBattleground() then
-            --    if PlayerHasPrepBuff() then
-            --        bgActive = false
-            --        btn:Show()
-            --        ScanForUnbuffed()
-            --        UpdateButton()
-            --        StartScanTicker()
-            --        print("|cff8888ffBrainFood:|r BG prep detected. Scanning for hungry brains...")
-            --    else
-            --        -- Joined mid-match, stay hidden
-            --        bgActive = true
-            --        btn:Hide()
-            --    end
-            --else
-                -- Not in a BG — reset state, show button for dungeon/raid use
+            if IsInBattleground() then
+                inBattleground = true
                 bgActive = false
-                StopScanTicker()
+                btn:Show()
                 ScanForUnbuffed()
                 UpdateButton()
-            --end
+                StartScanTicker()
+                print("|cff8888ffBrainFood:|r Battleground detected. Scanning for hungry brains...")
+            else
+                -- Not in a BG — hide and reset
+                inBattleground = false
+                bgActive = false
+                StopScanTicker()
+                btn:Hide()
+            end
         end)
 
+    elseif event == "CHAT_MSG_BG_SYSTEM_NEUTRAL" then
+        -- "has begun" is the system message when gates open (same as TowerTimer)
+        if arg1 and arg1:find("has begun") then
+            HideForBattle()
+        end
+
     elseif event == "GROUP_ROSTER_UPDATE" then
-        if bgActive then return end
+        if bgActive or not inBattleground then return end
         if not InCombatLockdown() then
             ScanForUnbuffed()
             UpdateButton()
         end
 
     elseif event == "UNIT_AURA" then
-        if bgActive then return end
+        if bgActive or not inBattleground then return end
         local now = GetTime()
         if now - throttle < 0.5 then return end
         throttle = now
-        -- TEST MODE: gate-open detection disabled
-        --if arg1 == "player" and IsInBattleground() and not PlayerHasPrepBuff() and not bgActive then
-        --    HideForBattle()
-        --    return
-        --end
         if not InCombatLockdown() then
             UpdateButton()
         end
 
     elseif event == "PLAYER_REGEN_ENABLED" then
-        if bgActive then
-            btn:Hide()
-            return
-        end
+        if bgActive or not inBattleground then return end
         ScanForUnbuffed()
         UpdateButton()
 
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
-        if bgActive then return end
+        if bgActive or not inBattleground then return end
         if arg1 == "player" then
             local spellName = ...
             if spellName == castSpell then
