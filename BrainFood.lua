@@ -3,6 +3,7 @@ local addonName, ns = ...
 -- Class-specific configuration (set on PLAYER_ENTERING_WORLD)
 local castSpell = nil   -- the spell to cast on click
 local buffNames = {}    -- buff auras to check for (if any present, skip that unit)
+local castSpells = {}   -- all spells this class can cast (for spellcast detection)
 local playerClass = nil
 
 local CLASS_CONFIG = {
@@ -17,6 +18,16 @@ local CLASS_CONFIG = {
     PALADIN = {
         cast = "Blessing of Wisdom",
         buffs = { "Blessing of Wisdom", "Greater Blessing of Wisdom" },
+        targetOverrides = {
+            WARRIOR = {
+                cast = "Blessing of Might",
+                buffs = { "Blessing of Might", "Greater Blessing of Might" },
+            },
+            ROGUE = {
+                cast = "Blessing of Might",
+                buffs = { "Blessing of Might", "Greater Blessing of Might" },
+            },
+        },
     },
 }
 
@@ -27,11 +38,23 @@ local currentIndex = 0 -- index into queue for current target
 -- Helpers
 -- ============================================================
 
-local function UnitHasBuff(unit)
+local function GetConfigForUnit(unit)
+    local config = CLASS_CONFIG[playerClass]
+    if config and config.targetOverrides then
+        local _, targetClass = UnitClass(unit)
+        if targetClass and config.targetOverrides[targetClass] then
+            return config.targetOverrides[targetClass]
+        end
+    end
+    return config
+end
+
+local function UnitHasBuff(unit, buffsToCheck)
+    local checkBuffs = buffsToCheck or buffNames
     for i = 1, 40 do
         local name = UnitBuff(unit, i)
         if not name then break end
-        for _, buffName in ipairs(buffNames) do
+        for _, buffName in ipairs(checkBuffs) do
             if name == buffName then
                 return true
             end
@@ -60,33 +83,53 @@ local function ScanForUnbuffed()
     local prefix = IsInRaid() and "raid" or "party"
     local count = IsInRaid() and numMembers or (numMembers - 1)
 
-    for i = 1, count do
-        local unit = prefix .. i
-        if IsValidBuffTarget(unit) and not UnitHasBuff(unit) then
-            table.insert(queue, unit)
+    local priority = {}
+    local normal = {}
+
+    local function AddUnit(unit)
+        if not IsValidBuffTarget(unit) then return end
+        local cfg = GetConfigForUnit(unit)
+        if cfg and not UnitHasBuff(unit, cfg.buffs) then
+            if cfg ~= CLASS_CONFIG[playerClass] then
+                table.insert(priority, unit)
+            else
+                table.insert(normal, unit)
+            end
         end
+    end
+
+    for i = 1, count do
+        AddUnit(prefix .. i)
     end
 
     -- In a party, "player" isn't one of the partyN units, so check separately
     if not IsInRaid() then
-        if IsValidBuffTarget("player") and not UnitHasBuff("player") then
-            table.insert(queue, "player")
-        end
+        AddUnit("player")
     end
+
+    -- Override targets (e.g. warriors/rogues needing Might) go first
+    for _, u in ipairs(priority) do table.insert(queue, u) end
+    for _, u in ipairs(normal) do table.insert(queue, u) end
 end
 
 local currentUnit = nil -- the unit we're currently targeting to buff
 
+local function UnitNeedsBuff(unit)
+    if not IsValidBuffTarget(unit) then return false end
+    local cfg = GetConfigForUnit(unit)
+    return cfg and not UnitHasBuff(unit, cfg.buffs)
+end
+
 local function GetNextTarget()
     -- If we have a current target that still needs a buff and is in range, stick with them
-    if currentUnit and IsValidBuffTarget(currentUnit) and not UnitHasBuff(currentUnit) then
+    if currentUnit and UnitNeedsBuff(currentUnit) then
         return currentUnit
     end
 
     -- Current target is done or invalid — find the next one from the queue
     currentUnit = nil
     for _, unit in ipairs(queue) do
-        if IsValidBuffTarget(unit) and not UnitHasBuff(unit) then
+        if UnitNeedsBuff(unit) then
             currentUnit = unit
             return unit
         end
@@ -95,21 +138,13 @@ local function GetNextTarget()
     -- Queue exhausted — do a fresh scan
     ScanForUnbuffed()
     for _, unit in ipairs(queue) do
-        if IsValidBuffTarget(unit) and not UnitHasBuff(unit) then
+        if UnitNeedsBuff(unit) then
             currentUnit = unit
             return unit
         end
     end
 
     return nil
-end
-
--- ============================================================
--- Determine which spell the player actually knows
--- ============================================================
-
-local function GetBuffSpellName()
-    return castSpell or "Arcane Intellect"
 end
 
 -- ============================================================
@@ -159,13 +194,14 @@ local function UpdateButton()
     if InCombatLockdown() then return end
 
     local unit = GetNextTarget()
-    local spell = GetBuffSpellName()
 
     if unit then
         local name = UnitName(unit) or unit
+        local cfg = GetConfigForUnit(unit)
+        local spell = cfg and cfg.cast or castSpell
         local remaining = 0
         for _, u in ipairs(queue) do
-            if IsValidBuffTarget(u) and not UnitHasBuff(u) then
+            if UnitNeedsBuff(u) then
                 remaining = remaining + 1
             end
         end
@@ -263,6 +299,12 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
         playerClass = class
         castSpell = config.cast
         buffNames = config.buffs
+        castSpells = { config.cast }
+        if config.targetOverrides then
+            for _, override in pairs(config.targetOverrides) do
+                table.insert(castSpells, override.cast)
+            end
+        end
 
         -- Short delay to let instance info populate
         C_Timer.After(2, function()
@@ -314,7 +356,11 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
         if bgActive or not inBattleground then return end
         if arg1 == "player" then
             local spellName = ...
-            if spellName == castSpell then
+            local isOurSpell = false
+            for _, s in ipairs(castSpells) do
+                if spellName == s then isOurSpell = true; break end
+            end
+            if isOurSpell then
                 C_Timer.After(0.3, function()
                     if not InCombatLockdown() then
                         UpdateButton()
