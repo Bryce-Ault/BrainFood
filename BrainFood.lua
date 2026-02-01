@@ -3,6 +3,7 @@ local addonName, ns = ...
 -- Shared state (populated during PLAYER_ENTERING_WORLD)
 ns.playerClass = nil
 ns.castSpell = nil
+ns.greaterCastSpell = nil
 ns.buffNames = {}
 ns.castSpells = {}
 

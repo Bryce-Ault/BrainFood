@@ -4,16 +4,16 @@ Battleground and arena buff assistant for Mages, Priests, Druids, and Paladins. 
 
 ## What It Does
 
-When you enter a battleground or arena, BrainFood scans your group/raid for unbuffed players and builds a priority queue. A button appears at the top of your screen — click it repeatedly and it will target each unbuffed player, cast your buff, then return to your previous target. Once everyone is buffed, it tells you so and turns green.
+When you enter a battleground or arena, BrainFood scans your group/raid for unbuffed players and builds a priority queue. A button appears at the top of your screen — left-click it repeatedly and it will target each unbuffed player, cast your single-target buff, then return to your previous target. Right-click to cast the greater/group version of the buff instead (e.g., Arcane Brilliance, Prayer of Fortitude, Gift of the Wild, Greater Blessings). Once everyone is buffed, it tells you so and turns green.
 
 When the match starts, the button hides automatically so it stays out of your way during combat.
 
 ## Class-Specific Buff Logic
 
-- **Mage:** Casts Arcane Intellect (recognizes Arcane Brilliance to avoid double-buffing). Skips Warriors and Rogues since they don't benefit from the intellect buff.
-- **Priest:** Casts Power Word: Fortitude (recognizes Prayer of Fortitude)
-- **Druid:** Casts Mark of the Wild (recognizes Gift of the Wild)
-- **Paladin:** Casts Blessing of Wisdom (recognizes Greater Blessing of Wisdom) by default, but automatically switches to Blessing of Might for Warriors and Rogues
+- **Mage:** Left-click casts Arcane Intellect, right-click casts Arcane Brilliance. Skips Warriors and Rogues since they don't benefit from the intellect buff.
+- **Priest:** Left-click casts Power Word: Fortitude, right-click casts Prayer of Fortitude.
+- **Druid:** Left-click casts Mark of the Wild, right-click casts Gift of the Wild.
+- **Paladin:** Left-click casts Blessing of Wisdom, right-click casts Greater Blessing of Wisdom. Automatically switches to Blessing of Might / Greater Blessing of Might for Warriors and Rogues.
 
 The addon checks for both single-target and raid-wide versions of each buff so it never wastes a cast on someone who's already covered. During the prep phase, buffs with less than 5 minutes remaining are treated as expired and will be refreshed.
 
@@ -34,6 +34,7 @@ The addon checks for both single-target and raid-wide versions of each buff so i
 ## UI & Commands
 
 - Draggable button — reposition it wherever you want
+- Left-click to cast single-target buff, right-click to cast the greater/group version
 - `/bf` or `/brainfood` — Toggle the button on/off
 - `/bf reset` — Reset button position to default
 

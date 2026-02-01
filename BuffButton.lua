@@ -37,6 +37,16 @@ status:SetPoint("TOP", btn, "BOTTOM", 0, -4)
 status:SetTextColor(0.7, 0.7, 1.0)
 status:SetText("")
 
+local leftHint = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+leftHint:SetPoint("TOP", status, "BOTTOM", 0, -2)
+leftHint:SetTextColor(0.53, 1.0, 0.53)
+leftHint:SetText("")
+
+local rightHint = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+rightHint:SetPoint("TOP", leftHint, "BOTTOM", 0, -1)
+rightHint:SetTextColor(0.53, 1.0, 0.53)
+rightHint:SetText("")
+
 -- Start hidden until we enter a BG
 btn:Hide()
 
@@ -52,6 +62,7 @@ function ns.UpdateButton()
         local name = UnitName(unit) or unit
         local cfg = ns.GetConfigForUnit(unit)
         local spell = cfg and cfg.cast or ns.castSpell
+        local greaterSpell = cfg and cfg.greaterCast or ns.greaterCastSpell
         local remaining = 0
         for _, u in ipairs(ns.queue) do
             if ns.UnitNeedsBuff(u) then
@@ -61,18 +72,27 @@ function ns.UpdateButton()
 
         label:SetText("Feed: " .. name)
         status:SetText(remaining .. " hungry brain(s) left")
+        leftHint:SetText("Left-click: " .. spell)
+        rightHint:SetText("Right-click: " .. (greaterSpell or spell))
         bg:SetColorTexture(0.1, 0.0, 0.3, 0.85)
 
         local macrotext = "/target " .. name .. "\n/cast " .. spell .. "\n/targetlasttarget"
+        local greaterMacrotext = "/target " .. name .. "\n/cast " .. (greaterSpell or spell) .. "\n/targetlasttarget"
 
-        btn:SetAttribute("type", "macro")
-        btn:SetAttribute("macrotext", macrotext)
+        btn:SetAttribute("type1", "macro")
+        btn:SetAttribute("macrotext1", macrotext)
+        btn:SetAttribute("type2", "macro")
+        btn:SetAttribute("macrotext2", greaterMacrotext)
     else
         label:SetText("BrainFood: All Fed!")
         status:SetText("Everyone has big brain energy")
+        leftHint:SetText("")
+        rightHint:SetText("")
         bg:SetColorTexture(0.0, 0.2, 0.0, 0.85)
 
-        btn:SetAttribute("type", nil)
-        btn:SetAttribute("macrotext", nil)
+        btn:SetAttribute("type1", nil)
+        btn:SetAttribute("macrotext1", nil)
+        btn:SetAttribute("type2", nil)
+        btn:SetAttribute("macrotext2", nil)
     end
 end

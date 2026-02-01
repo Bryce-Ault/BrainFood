@@ -68,11 +68,15 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
         ns.playerClass = class
         ns.castSpell = config.cast
+        ns.greaterCastSpell = config.greaterCast
         ns.buffNames = config.buffs
-        ns.castSpells = { config.cast }
+        ns.castSpells = { config.cast, config.greaterCast }
         if config.targetOverrides then
             for _, override in pairs(config.targetOverrides) do
                 table.insert(ns.castSpells, override.cast)
+                if override.greaterCast then
+                    table.insert(ns.castSpells, override.greaterCast)
+                end
             end
         end
 
