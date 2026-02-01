@@ -10,12 +10,12 @@ When the gates open, the button hides automatically so it stays out of your way 
 
 ## Class-Specific Buff Logic
 
-- **Mage:** Casts Arcane Intellect (recognizes Arcane Brilliance to avoid double-buffing)
+- **Mage:** Casts Arcane Intellect (recognizes Arcane Brilliance to avoid double-buffing). Skips Warriors and Rogues since they don't benefit from the intellect buff.
 - **Priest:** Casts Power Word: Fortitude (recognizes Prayer of Fortitude)
 - **Druid:** Casts Mark of the Wild (recognizes Gift of the Wild)
-- **Paladin:** Casts Blessing of Wisdom by default, but automatically switches to Blessing of Might for Warriors and Rogues
+- **Paladin:** Casts Blessing of Wisdom (recognizes Greater Blessing of Wisdom) by default, but automatically switches to Blessing of Might for Warriors and Rogues
 
-The addon checks for both single-target and raid-wide versions of each buff so it never wastes a cast on someone who's already covered.
+The addon checks for both single-target and raid-wide versions of each buff so it never wastes a cast on someone who's already covered. During the prep phase, buffs with less than 5 minutes remaining are treated as expired and will be refreshed.
 
 ## Smart Targeting
 
@@ -33,7 +33,7 @@ The addon checks for both single-target and raid-wide versions of each buff so i
 ## UI & Commands
 
 - Draggable button — reposition it wherever you want
-- `/bf` — Toggle the button on/off
+- `/bf` or `/brainfood` — Toggle the button on/off
 - `/bf reset` — Reset button position to default
 
 ## Who Is This For?
