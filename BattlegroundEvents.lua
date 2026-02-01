@@ -94,14 +94,14 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
 
     elseif event == "GROUP_ROSTER_UPDATE" then
-        if ns.bgActive or not ns.inBattleground then return end
+        if ns.bgActive or not ns.btn:IsShown() then return end
         if not InCombatLockdown() then
             ns.ScanForUnbuffed()
             ns.UpdateButton()
         end
 
     elseif event == "UNIT_AURA" then
-        if ns.bgActive or not ns.inBattleground then return end
+        if ns.bgActive or not ns.btn:IsShown() then return end
         local now = GetTime()
         if now - throttle < 0.5 then return end
         throttle = now
@@ -110,12 +110,12 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
 
     elseif event == "PLAYER_REGEN_ENABLED" then
-        if ns.bgActive or not ns.inBattleground then return end
+        if ns.bgActive or not ns.btn:IsShown() then return end
         ns.ScanForUnbuffed()
         ns.UpdateButton()
 
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
-        if ns.bgActive or not ns.inBattleground then return end
+        if ns.bgActive or not ns.btn:IsShown() then return end
         if arg1 == "player" then
             local spellName = ...
             local isOurSpell = false
