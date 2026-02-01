@@ -11,14 +11,20 @@ function ns.GetConfigForUnit(unit)
     return config
 end
 
+local BUFF_MIN_REMAINING = 300 -- 5 minutes in seconds
+
 function ns.UnitHasBuff(unit, buffsToCheck)
     local checkBuffs = buffsToCheck or ns.buffNames
+    local now = GetTime()
     for i = 1, 40 do
-        local name = UnitBuff(unit, i)
+        local name, _, _, _, _, expirationTime = UnitBuff(unit, i)
         if not name then break end
         for _, buffName in ipairs(checkBuffs) do
             if name == buffName then
-                return true
+                -- expirationTime of 0 means the buff never expires
+                if expirationTime == 0 or (expirationTime - now) >= BUFF_MIN_REMAINING then
+                    return true
+                end
             end
         end
     end
