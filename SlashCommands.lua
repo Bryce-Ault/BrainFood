@@ -13,12 +13,10 @@ SlashCmdList["BRAINFOOD"] = function(msg)
     end
 
     if ns.btn:IsShown() then
-        ns.btn:Hide()
+        ns.DisableButton()
         ns.Print("Hidden. Type /bf to show again.")
     else
-        ns.btn:Show()
-        ns.ScanForUnbuffed()
-        ns.UpdateButton()
+        ns.EnableButton()
         ns.Print("Scanning for hungry brains...")
     end
 end

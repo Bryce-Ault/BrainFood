@@ -17,7 +17,7 @@ end
 local function StartScanTicker()
     StopScanTicker()
     scanTicker = C_Timer.NewTicker(3, function()
-        if ns.bgActive or not ns.inBattleground then
+        if not ns.btn:IsShown() then
             StopScanTicker()
             return
         end
@@ -28,18 +28,23 @@ local function StartScanTicker()
     end)
 end
 
+function ns.EnableButton()
+    if InCombatLockdown() then return end
+    ns.btn:Show()
+    ns.ScanForUnbuffed()
+    ns.UpdateButton()
+    StartScanTicker()
+end
+
+function ns.DisableButton()
+    if InCombatLockdown() then return end
+    StopScanTicker()
+    ns.btn:Hide()
+end
+
 local function HideForBattle()
     ns.bgActive = true
-    StopScanTicker()
-    if not InCombatLockdown() then
-        ns.btn:Hide()
-    else
-        C_Timer.After(0.5, function()
-            if ns.bgActive and not InCombatLockdown() then
-                ns.btn:Hide()
-            end
-        end)
-    end
+    ns.DisableButton()
     ns.Print("Match started. Hiding BrainFood.")
 end
 
@@ -75,20 +80,12 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
             if IsInBattlegroundOrArena() then
                 ns.inBattleground = true
                 ns.bgActive = false
-                if not InCombatLockdown() then
-                    ns.btn:Show()
-                    ns.ScanForUnbuffed()
-                    ns.UpdateButton()
-                end
-                StartScanTicker()
+                ns.EnableButton()
                 ns.Print("Match detected. Scanning for hungry brains...")
             else
                 ns.inBattleground = false
                 ns.bgActive = false
-                StopScanTicker()
-                if not InCombatLockdown() then
-                    ns.btn:Hide()
-                end
+                ns.DisableButton()
             end
         end)
 
@@ -98,14 +95,14 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
 
     elseif event == "GROUP_ROSTER_UPDATE" then
-        if ns.bgActive or not ns.btn:IsShown() then return end
+        if not ns.btn:IsShown() then return end
         if not InCombatLockdown() then
             ns.ScanForUnbuffed()
             ns.UpdateButton()
         end
 
     elseif event == "UNIT_AURA" then
-        if ns.bgActive or not ns.btn:IsShown() then return end
+        if not ns.btn:IsShown() then return end
         local now = GetTime()
         if now - throttle < 0.5 then return end
         throttle = now
@@ -114,12 +111,16 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
 
     elseif event == "PLAYER_REGEN_ENABLED" then
-        if ns.bgActive or not ns.btn:IsShown() then return end
+        if not ns.btn:IsShown() then return end
+        if ns.bgActive then
+            ns.DisableButton()
+            return
+        end
         ns.ScanForUnbuffed()
         ns.UpdateButton()
 
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
-        if ns.bgActive or not ns.btn:IsShown() then return end
+        if not ns.btn:IsShown() then return end
         if arg1 == "player" then
             local spellName = ...
             local isOurSpell = false
