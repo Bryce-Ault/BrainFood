@@ -16,15 +16,16 @@ local BUFF_MIN_REMAINING = 300 -- 5 minutes in seconds
 function ns.UnitHasBuff(unit, buffsToCheck)
     local checkBuffs = buffsToCheck or ns.buffNames
     local now = GetTime()
+    local checkExpiry = ns.inBattleground and not ns.bgActive
     for i = 1, 40 do
         local name, _, _, _, _, expirationTime = UnitBuff(unit, i)
         if not name then break end
         for _, buffName in ipairs(checkBuffs) do
             if name == buffName then
-                -- expirationTime of 0 means the buff never expires
-                if expirationTime == 0 or (expirationTime - now) >= BUFF_MIN_REMAINING then
-                    return true
+                if checkExpiry and expirationTime ~= 0 and (expirationTime - now) < BUFF_MIN_REMAINING then
+                    break -- treat as unbuffed, keep scanning in case a longer buff exists
                 end
+                return true
             end
         end
     end
