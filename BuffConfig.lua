@@ -4,6 +4,7 @@ ns.CLASS_CONFIG = {
     MAGE = {
         cast = "Arcane Intellect",
         buffs = { "Arcane Intellect", "Arcane Brilliance" },
+        skipClasses = { ROGUE = true, WARRIOR = true },
     },
     PRIEST = {
         cast = "Power Word: Fortitude",

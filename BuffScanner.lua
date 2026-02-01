@@ -2,11 +2,13 @@ local _, ns = ...
 
 function ns.GetConfigForUnit(unit)
     local config = ns.CLASS_CONFIG[ns.playerClass]
-    if config and config.targetOverrides then
-        local _, targetClass = UnitClass(unit)
-        if targetClass and config.targetOverrides[targetClass] then
-            return config.targetOverrides[targetClass]
-        end
+    if not config then return nil end
+    local _, targetClass = UnitClass(unit)
+    if targetClass and config.skipClasses and config.skipClasses[targetClass] then
+        return nil
+    end
+    if targetClass and config.targetOverrides and config.targetOverrides[targetClass] then
+        return config.targetOverrides[targetClass]
     end
     return config
 end
