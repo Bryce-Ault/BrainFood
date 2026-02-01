@@ -2,18 +2,9 @@ local _, ns = ...
 
 local scanTicker = nil
 
-local function IsInBattleground()
+local function IsInBattlegroundOrArena()
     local _, instanceType = IsInInstance()
-    return instanceType == "pvp"
-end
-
-local function HasPreparationBuff()
-    for i = 1, 40 do
-        local name = UnitBuff("player", i)
-        if not name then break end
-        if name == "Preparation" then return true end
-    end
-    return false
+    return instanceType == "pvp" or instanceType == "arena"
 end
 
 local function StopScanTicker()
@@ -49,7 +40,7 @@ local function HideForBattle()
             end
         end)
     end
-    ns.Print("Battleground started. Hiding until next prep phase.")
+    ns.Print("Match started. Hiding BrainFood.")
 end
 
 local frame = CreateFrame("Frame")
@@ -81,23 +72,23 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
 
         C_Timer.After(2, function()
-            if IsInBattleground() then
+            if IsInBattlegroundOrArena() then
                 ns.inBattleground = true
-                if HasPreparationBuff() then
-                    ns.bgActive = false
+                ns.bgActive = false
+                if not InCombatLockdown() then
                     ns.btn:Show()
                     ns.ScanForUnbuffed()
                     ns.UpdateButton()
-                    StartScanTicker()
-                    ns.Print("Battleground detected. Scanning for hungry brains...")
-                else
-                    ns.bgActive = true
                 end
+                StartScanTicker()
+                ns.Print("Match detected. Scanning for hungry brains...")
             else
                 ns.inBattleground = false
                 ns.bgActive = false
                 StopScanTicker()
-                ns.btn:Hide()
+                if not InCombatLockdown() then
+                    ns.btn:Hide()
+                end
             end
         end)
 

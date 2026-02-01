@@ -1,12 +1,12 @@
 # BrainFood
 
-Battleground buff assistant for Mages, Priests, Druids, and Paladins. One-click button to systematically buff every teammate during the prep phase — no manual targeting, no missed players, no wasted time.
+Battleground and arena buff assistant for Mages, Priests, Druids, and Paladins. One-click button to systematically buff every teammate — no manual targeting, no missed players, no wasted time.
 
 ## What It Does
 
-When you enter a battleground, BrainFood scans your group/raid for unbuffed players and builds a priority queue. A button appears at the top of your screen — click it repeatedly and it will target each unbuffed player, cast your buff, then return to your previous target. Once everyone is buffed, it tells you so and turns green.
+When you enter a battleground or arena, BrainFood scans your group/raid for unbuffed players and builds a priority queue. A button appears at the top of your screen — click it repeatedly and it will target each unbuffed player, cast your buff, then return to your previous target. Once everyone is buffed, it tells you so and turns green.
 
-When the gates open, the button hides automatically so it stays out of your way during combat.
+When the match starts, the button hides automatically so it stays out of your way during combat.
 
 ## Class-Specific Buff Logic
 
@@ -24,11 +24,12 @@ The addon checks for both single-target and raid-wide versions of each buff so i
 - Skips players who are dead, offline, out of range, or already buffed
 - Rescans every 3 seconds and whenever the group roster changes, so late-loading players get picked up automatically
 
-## Battleground Lifecycle Awareness
+## Match Lifecycle
 
-- **Prep phase:** Button appears, scanning begins, click to buff
-- **Gates open ("has begun"):** Button hides, scanning stops — zero clutter during combat
+- **Enter BG/arena:** Button appears, scanning begins, click to buff
+- **Match starts ("has begun"):** Button hides, scanning stops — zero clutter during combat
 - **Leaving combat:** Rescans in case new players need buffs
+- **Outside BG/arena:** Button stays hidden unless manually toggled with `/bf`
 
 ## UI & Commands
 
@@ -38,4 +39,4 @@ The addon checks for both single-target and raid-wide versions of each buff so i
 
 ## Who Is This For?
 
-If you play a buffing class in TBC Anniversary battlegrounds and you're tired of manually clicking through 15–40 players during the prep countdown, BrainFood handles it in seconds. One button, one job — feed those brains.
+If you play a buffing class in TBC Anniversary battlegrounds or arenas and you're tired of manually clicking through players before the match starts, BrainFood handles it in seconds. One button, one job — feed those brains.
