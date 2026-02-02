@@ -7,6 +7,15 @@ local function IsInBattlegroundOrArena()
     return instanceType == "pvp" or instanceType == "arena"
 end
 
+local function HasPreparationBuff()
+    for i = 1, 40 do
+        local name = UnitBuff("player", i)
+        if not name then break end
+        if name == "Preparation" then return true end
+    end
+    return false
+end
+
 local function StopScanTicker()
     if scanTicker then
         scanTicker:Cancel()
@@ -83,9 +92,15 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
         C_Timer.After(2, function()
             if IsInBattlegroundOrArena() then
                 ns.inBattleground = true
-                ns.bgActive = false
-                ns.EnableButton()
-                ns.Print("Match detected. Scanning for hungry brains...")
+                if HasPreparationBuff() then
+                    ns.bgActive = false
+                    ns.EnableButton()
+                    ns.Print("Match detected. Scanning for hungry brains...")
+                else
+                    ns.bgActive = true
+                    ns.DisableButton()
+                    ns.Print("Match already in progress. BrainFood hidden.")
+                end
             else
                 ns.inBattleground = false
                 ns.bgActive = false
